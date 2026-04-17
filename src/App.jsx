@@ -624,45 +624,77 @@ export default function App() {
     setFetching(true);
     setStatus('⟳ Buscando resultado...');
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-          system: 'Responda APENAS JSON puro sem markdown. Formato: {"concurso":3659,"data":"11/04/2026","numeros":[3,5,6,7,8,9,10,11,13,14,15,16,17,23,25],"ganhadores":1}. Se erro: {"erro":"msg"}',
-          messages: [{ role: 'user', content: 'Último resultado da Lotofácil: número do concurso, data, 15 números em ordem crescente, ganhadores. Busque na web agora.' }]
-        })
-      });
+      // API gratuita da Caixa Econômica Federal — sem necessidade de chave!
+      const PROXY = 'https://corsproxy.io/?url=';
+      const CAIXA_URL = 'https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil';
+      const resp = await fetch(`${PROXY}${encodeURIComponent(CAIXA_URL)}`);
+
+      if (!resp.ok) throw new Error('Erro na requisição');
       const data = await resp.json();
-      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').replace(/```json|```/g, '').trim();
-      const json = JSON.parse(text);
-      if (!json.erro && json.numeros?.length === 15) {
-        const nums = json.numeros.map(Number).sort((a, b) => a - b);
-        const live = { concurso: json.concurso, data: json.data, numeros: nums, ganhadores: json.ganhadores };
+
+      // A API da Caixa retorna os dados no formato:
+      // { numero, dataApuracao, listaDezenas, listaRateioPremio }
+      const concurso = parseInt(data.numero);
+      const dataStr = data.dataApuracao || '—';
+      const nums = (data.listaDezenas || []).map(Number).sort((a, b) => a - b);
+
+      // Extrai ganhadores do 1º prêmio (15 acertos)
+      const rateioPrincipal = (data.listaRateioPremio || []).find(r => r.descricaoFaixa === '15 acertos' || r.faixa === 1);
+      const ganhadores = rateioPrincipal ? rateioPrincipal.numeroDeGanhadores : 0;
+
+      if (nums.length === 15) {
+        const live = { concurso, data: dataStr, numeros: nums, ganhadores };
         setLiveResult(live);
         await window.storage.set('loto-live-v3', JSON.stringify(live));
         await window.storage.set('loto-ts', String(Date.now()));
 
-        // Adiciona ao histórico se novo
+        // Adiciona ao histórico se novo concurso
         const cur = currentGames || games;
-        if (!cur.find(g => g.concurso === json.concurso)) {
-          const updated = [{ concurso: json.concurso, numeros: nums }, ...cur].slice(0, 500);
+        if (!cur.find(g => g.concurso === concurso)) {
+          const updated = [{ concurso, numeros: nums }, ...cur].slice(0, 500);
           setGames(updated);
           setStats(analyze(updated));
           await window.storage.set('loto-games-v3', JSON.stringify(updated));
         }
 
-        // Notificação de novo resultado
-        setNotification({ type: 'success', msg: `✅ Concurso ${json.concurso} atualizado — ${json.data}` });
+        setNotification({ type: 'success', msg: `✅ Concurso ${concurso} atualizado — ${dataStr}` });
         setTimeout(() => setNotification(null), 5000);
         setStatus('');
       } else {
-        setStatus('⚠ Não foi possível obter resultado');
+        throw new Error('Dados inválidos');
       }
     } catch (e) {
-      setStatus('❌ Erro ao buscar resultado');
+      // Fallback: tenta buscar pelo número do concurso mais recente conhecido
+      try {
+        const ultimoConhecido = (currentGames || games)[0]?.concurso || 3659;
+        const proximo = ultimoConhecido + 1;
+        const PROXY = 'https://corsproxy.io/?url=';
+        const url = `https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/${proximo}`;
+        const resp2 = await fetch(`${PROXY}${encodeURIComponent(url)}`);
+        if (resp2.ok) {
+          const data2 = await resp2.json();
+          const nums2 = (data2.listaDezenas || []).map(Number).sort((a, b) => a - b);
+          if (nums2.length === 15) {
+            const live2 = { concurso: proximo, data: data2.dataApuracao || '—', numeros: nums2, ganhadores: 0 };
+            setLiveResult(live2);
+            await window.storage.set('loto-live-v3', JSON.stringify(live2));
+            await window.storage.set('loto-ts', String(Date.now()));
+            const cur = currentGames || games;
+            if (!cur.find(g => g.concurso === proximo)) {
+              const updated = [{ concurso: proximo, numeros: nums2 }, ...cur].slice(0, 500);
+              setGames(updated);
+              setStats(analyze(updated));
+              await window.storage.set('loto-games-v3', JSON.stringify(updated));
+            }
+            setNotification({ type: 'success', msg: `✅ Concurso ${proximo} encontrado!` });
+            setTimeout(() => setNotification(null), 5000);
+            setStatus('');
+            setFetching(false);
+            return;
+          }
+        }
+      } catch (_) {}
+      setStatus('⚠ Não foi possível atualizar agora. Tente mais tarde.');
     }
     setFetching(false);
   }, [games]);
