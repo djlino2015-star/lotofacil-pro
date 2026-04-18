@@ -624,74 +624,71 @@ export default function App() {
     setFetching(true);
     setStatus('⟳ Buscando resultado...');
     try {
-      // API gratuita da Caixa Econômica Federal — sem necessidade de chave!
-      const PROXY = 'https://corsproxy.io/?url=';
-      const CAIXA_URL = 'https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil';
-      const resp = await fetch(`${PROXY}${encodeURIComponent(CAIXA_URL)}`);
-
+      // API do GitHub — atualizada automaticamente todo dia, sem CORS!
+      // Fonte: guilhermeasn/loteria.json (dados direto da Caixa via GitHub Actions)
+      const resp = await fetch(
+        'https://raw.githubusercontent.com/guilhermeasn/loteria.json/master/data/lotofacil.json',
+        { cache: 'no-store' }
+      );
       if (!resp.ok) throw new Error('Erro na requisição');
       const data = await resp.json();
 
-      // A API da Caixa retorna os dados no formato:
-      // { numero, dataApuracao, listaDezenas, listaRateioPremio }
-      const concurso = parseInt(data.numero);
-      const dataStr = data.dataApuracao || '—';
-      const nums = (data.listaDezenas || []).map(Number).sort((a, b) => a - b);
+      // O JSON é um objeto onde cada chave é o número do concurso
+      // Pega o último concurso (maior número)
+      const concursos = Object.keys(data).map(Number).sort((a, b) => b - a);
+      const ultimoNum = concursos[0];
+      const ultimo = data[ultimoNum];
 
-      // Extrai ganhadores do 1º prêmio (15 acertos)
-      const rateioPrincipal = (data.listaRateioPremio || []).find(r => r.descricaoFaixa === '15 acertos' || r.faixa === 1);
-      const ganhadores = rateioPrincipal ? rateioPrincipal.numeroDeGanhadores : 0;
+      // Formato: { "n": [3,5,6,...], "d": "11/04/2026" }
+      const nums = (ultimo.n || ultimo.dezenas || []).map(Number).sort((a, b) => a - b);
+      const dataStr = ultimo.d || ultimo.data || '—';
+      const ganhadores = ultimo.g ?? ultimo.ganhadores ?? '?';
 
       if (nums.length === 15) {
-        const live = { concurso, data: dataStr, numeros: nums, ganhadores };
+        const live = { concurso: ultimoNum, data: dataStr, numeros: nums, ganhadores };
         setLiveResult(live);
         await window.storage.set('loto-live-v3', JSON.stringify(live));
         await window.storage.set('loto-ts', String(Date.now()));
 
-        // Adiciona ao histórico se novo concurso
         const cur = currentGames || games;
-        if (!cur.find(g => g.concurso === concurso)) {
-          const updated = [{ concurso, numeros: nums }, ...cur].slice(0, 500);
+        if (!cur.find(g => g.concurso === ultimoNum)) {
+          const updated = [{ concurso: ultimoNum, numeros: nums }, ...cur].slice(0, 500);
           setGames(updated);
           setStats(analyze(updated));
           await window.storage.set('loto-games-v3', JSON.stringify(updated));
         }
 
-        setNotification({ type: 'success', msg: `✅ Concurso ${concurso} atualizado — ${dataStr}` });
+        setNotification({ type: 'success', msg: `✅ Concurso ${ultimoNum} atualizado — ${dataStr}` });
         setTimeout(() => setNotification(null), 5000);
         setStatus('');
       } else {
-        throw new Error('Dados inválidos');
+        throw new Error('Formato inesperado');
       }
     } catch (e) {
-      // Fallback: tenta buscar pelo número do concurso mais recente conhecido
+      // Fallback: API do guidi.dev.br
       try {
-        const ultimoConhecido = (currentGames || games)[0]?.concurso || 3659;
-        const proximo = ultimoConhecido + 1;
-        const PROXY = 'https://corsproxy.io/?url=';
-        const url = `https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/${proximo}`;
-        const resp2 = await fetch(`${PROXY}${encodeURIComponent(url)}`);
-        if (resp2.ok) {
-          const data2 = await resp2.json();
-          const nums2 = (data2.listaDezenas || []).map(Number).sort((a, b) => a - b);
-          if (nums2.length === 15) {
-            const live2 = { concurso: proximo, data: data2.dataApuracao || '—', numeros: nums2, ganhadores: 0 };
-            setLiveResult(live2);
-            await window.storage.set('loto-live-v3', JSON.stringify(live2));
-            await window.storage.set('loto-ts', String(Date.now()));
-            const cur = currentGames || games;
-            if (!cur.find(g => g.concurso === proximo)) {
-              const updated = [{ concurso: proximo, numeros: nums2 }, ...cur].slice(0, 500);
-              setGames(updated);
-              setStats(analyze(updated));
-              await window.storage.set('loto-games-v3', JSON.stringify(updated));
-            }
-            setNotification({ type: 'success', msg: `✅ Concurso ${proximo} encontrado!` });
-            setTimeout(() => setNotification(null), 5000);
-            setStatus('');
-            setFetching(false);
-            return;
+        const resp2 = await fetch('https://api.guidi.dev.br/loteria/lotofacil/ultimo', { cache: 'no-store' });
+        if (!resp2.ok) throw new Error('Fallback falhou');
+        const d2 = await resp2.json();
+        const nums2 = (d2.dezenas || d2.n || []).map(Number).sort((a, b) => a - b);
+        const conc2 = parseInt(d2.concurso || d2.numero || 0);
+        if (nums2.length === 15 && conc2 > 0) {
+          const live2 = { concurso: conc2, data: d2.data || d2.d || '—', numeros: nums2, ganhadores: d2.ganhadores ?? '?' };
+          setLiveResult(live2);
+          await window.storage.set('loto-live-v3', JSON.stringify(live2));
+          await window.storage.set('loto-ts', String(Date.now()));
+          const cur = currentGames || games;
+          if (!cur.find(g => g.concurso === conc2)) {
+            const updated = [{ concurso: conc2, numeros: nums2 }, ...cur].slice(0, 500);
+            setGames(updated);
+            setStats(analyze(updated));
+            await window.storage.set('loto-games-v3', JSON.stringify(updated));
           }
+          setNotification({ type: 'success', msg: `✅ Concurso ${conc2} atualizado!` });
+          setTimeout(() => setNotification(null), 5000);
+          setStatus('');
+          setFetching(false);
+          return;
         }
       } catch (_) {}
       setStatus('⚠ Não foi possível atualizar agora. Tente mais tarde.');
