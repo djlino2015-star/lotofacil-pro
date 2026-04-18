@@ -885,7 +885,7 @@ export default function App() {
                   const sel = myNums.includes(n);
                   const sug = stats?.suggested.includes(n);
                   return (
-                    <button key={n} onClick={() => toggleNum(n)} disabled={myNums.length >= 15 && !sel} style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: sel || myNums.length < 15 ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 900, transition: 'all .15s', background: sel ? 'linear-gradient(135deg,#1a4a9f,#3a7aff)' : sug ? '#0a1a0a' : '#0a1228', color: sel ? '#fff' : sug ? '#00cc66' : '#1e3a60', border: `${sel ? '2px' : '1px'} solid ${sel ? '#3a7fff' : sug ? '#1a4a20' : '#162040'}`, opacity: myNums.length >= 15 && !sel ? .3 : 1, boxShadow: sel ? '0 0 10px #3a7fff55' : 'none' }}>
+                    <button key={n} onClick={() => toggleNum(n)} disabled={myNums.length >= 15 && !sel} style={{ width: 38, height: 38, borderRadius: '50%', cursor: sel || myNums.length < 15 ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 900, transition: 'all .15s', background: sel ? 'linear-gradient(135deg,#1a4a9f,#3a7aff)' : sug ? '#0a1a0a' : '#0a1228', color: sel ? '#fff' : sug ? '#00cc66' : '#1e3a60', border: `${sel ? '2px' : '1px'} solid ${sel ? '#3a7fff' : sug ? '#1a4a20' : '#162040'}`, opacity: myNums.length >= 15 && !sel ? .3 : 1, boxShadow: sel ? '0 0 10px #3a7fff55' : 'none' }}>
                       {String(n).padStart(2, '0')}
                     </button>
                   );
@@ -947,7 +947,7 @@ export default function App() {
                   const inActive = inGames[compareActive];
                   const others = inGames.map((v, i) => v && i !== compareActive ? i : -1).filter(x => x >= 0);
                   return (
-                    <button key={n} onClick={() => toggleCompare(n, compareActive)} disabled={compareNums[compareActive].length >= 15 && !inActive} style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 900, position: 'relative', background: inActive ? compareColors[compareActive] + '44' : '#0a1228', color: inActive ? compareColors[compareActive] : others.length > 0 ? '#8090b0' : '#1e3a60', border: `${inActive ? '2px' : '1px'} solid ${inActive ? compareColors[compareActive] : others.length > 0 ? '#2a3a50' : '#162040'}`, opacity: compareNums[compareActive].length >= 15 && !inActive ? .3 : 1 }}>
+                    <button key={n} onClick={() => toggleCompare(n, compareActive)} disabled={compareNums[compareActive].length >= 15 && !inActive} style={{ width: 38, height: 38, borderRadius: '50%', cursor: 'pointer', fontSize: 11, fontWeight: 900, position: 'relative', background: inActive ? compareColors[compareActive] + '44' : '#0a1228', color: inActive ? compareColors[compareActive] : others.length > 0 ? '#8090b0' : '#1e3a60', border: `${inActive ? '2px' : '1px'} solid ${inActive ? compareColors[compareActive] : others.length > 0 ? '#2a3a50' : '#162040'}`, opacity: compareNums[compareActive].length >= 15 && !inActive ? .3 : 1 }}>
                       {String(n).padStart(2, '0')}
                       {others.length > 0 && <div style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: '50%', background: compareColors[others[0]] }} />}
                     </button>
