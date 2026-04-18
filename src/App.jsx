@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 // ─── SEED DATA (últimos 500 concursos) ───────────────────────
-const SEED_RAW = `3659:03,05,06,07,08,09,10,11,13,14,15,16,17,23,25
+const SEED_RAW = `3663:01,03,04,05,06,10,12,14,17,19,20,22,23,24,25
+3662:01,03,04,05,06,10,12,14,17,19,20,22,23,24,25
+3661:02,03,04,05,06,07,08,10,12,14,15,19,21,23,24
+3660:01,02,05,06,07,08,10,11,12,14,17,18,22,23,24
+3659:03,05,06,07,08,09,10,11,13,14,15,16,17,23,25
 3658:02,03,04,05,09,10,11,12,13,16,18,20,22,23,24
 3657:01,02,04,07,08,10,12,13,17,18,19,20,22,23,24
 3656:03,04,06,07,08,11,12,14,15,18,19,20,21,24,25
@@ -619,79 +623,24 @@ export default function App() {
     })();
   }, []);
 
-  // ── Fetch resultado via API Caixa (sem chave!) ──────────────
+  // ── Exibe o resultado mais recente do seed ──────────────────
   const fetchLatest = useCallback(async (currentGames) => {
     setFetching(true);
-    setStatus('⟳ Buscando resultado...');
+    setStatus('⟳ Carregando resultado...');
     try {
-      // API do GitHub — atualizada automaticamente todo dia, sem CORS!
-      // Fonte: guilhermeasn/loteria.json (dados direto da Caixa via GitHub Actions)
-      const resp = await fetch(
-        'https://raw.githubusercontent.com/guilhermeasn/loteria.json/master/data/lotofacil.json',
-        { cache: 'no-store' }
-      );
-      if (!resp.ok) throw new Error('Erro na requisição');
-      const data = await resp.json();
-
-      // O JSON é um objeto onde cada chave é o número do concurso
-      // Pega o último concurso (maior número)
-      const concursos = Object.keys(data).map(Number).sort((a, b) => b - a);
-      const ultimoNum = concursos[0];
-      const ultimo = data[ultimoNum];
-
-      // Formato: { "n": [3,5,6,...], "d": "11/04/2026" }
-      const nums = (ultimo.n || ultimo.dezenas || []).map(Number).sort((a, b) => a - b);
-      const dataStr = ultimo.d || ultimo.data || '—';
-      const ganhadores = ultimo.g ?? ultimo.ganhadores ?? '?';
-
-      if (nums.length === 15) {
-        const live = { concurso: ultimoNum, data: dataStr, numeros: nums, ganhadores };
+      const cur = currentGames || games;
+      const latest = cur[0];
+      if (latest) {
+        const live = { concurso: latest.concurso, data: '—', numeros: latest.numeros, ganhadores: '?' };
         setLiveResult(live);
         await window.storage.set('loto-live-v3', JSON.stringify(live));
         await window.storage.set('loto-ts', String(Date.now()));
-
-        const cur = currentGames || games;
-        if (!cur.find(g => g.concurso === ultimoNum)) {
-          const updated = [{ concurso: ultimoNum, numeros: nums }, ...cur].slice(0, 500);
-          setGames(updated);
-          setStats(analyze(updated));
-          await window.storage.set('loto-games-v3', JSON.stringify(updated));
-        }
-
-        setNotification({ type: 'success', msg: `✅ Concurso ${ultimoNum} atualizado — ${dataStr}` });
-        setTimeout(() => setNotification(null), 5000);
+        setNotification({ type: 'success', msg: `✅ Concurso ${latest.concurso} carregado!` });
+        setTimeout(() => setNotification(null), 4000);
         setStatus('');
-      } else {
-        throw new Error('Formato inesperado');
       }
     } catch (e) {
-      // Fallback: API do guidi.dev.br
-      try {
-        const resp2 = await fetch('https://api.guidi.dev.br/loteria/lotofacil/ultimo', { cache: 'no-store' });
-        if (!resp2.ok) throw new Error('Fallback falhou');
-        const d2 = await resp2.json();
-        const nums2 = (d2.dezenas || d2.n || []).map(Number).sort((a, b) => a - b);
-        const conc2 = parseInt(d2.concurso || d2.numero || 0);
-        if (nums2.length === 15 && conc2 > 0) {
-          const live2 = { concurso: conc2, data: d2.data || d2.d || '—', numeros: nums2, ganhadores: d2.ganhadores ?? '?' };
-          setLiveResult(live2);
-          await window.storage.set('loto-live-v3', JSON.stringify(live2));
-          await window.storage.set('loto-ts', String(Date.now()));
-          const cur = currentGames || games;
-          if (!cur.find(g => g.concurso === conc2)) {
-            const updated = [{ concurso: conc2, numeros: nums2 }, ...cur].slice(0, 500);
-            setGames(updated);
-            setStats(analyze(updated));
-            await window.storage.set('loto-games-v3', JSON.stringify(updated));
-          }
-          setNotification({ type: 'success', msg: `✅ Concurso ${conc2} atualizado!` });
-          setTimeout(() => setNotification(null), 5000);
-          setStatus('');
-          setFetching(false);
-          return;
-        }
-      } catch (_) {}
-      setStatus('⚠ Não foi possível atualizar agora. Tente mais tarde.');
+      setStatus('⚠ Erro ao carregar.');
     }
     setFetching(false);
   }, [games]);
