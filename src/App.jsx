@@ -623,27 +623,56 @@ export default function App() {
     })();
   }, []);
 
-  // ── Exibe o resultado mais recente do seed ──────────────────
+  // ── Busca resultado via Grok API (servidor seguro) ──────────
   const fetchLatest = useCallback(async (currentGames) => {
     setFetching(true);
-    setStatus('⟳ Carregando resultado...');
+    setStatus('⟳ Buscando resultado com IA...');
     try {
-      const cur = currentGames || games;
-      const latest = cur[0];
-      if (latest) {
-        const live = { concurso: latest.concurso, data: '—', numeros: latest.numeros, ganhadores: '?' };
+      // Chama a Vercel Function que usa o Grok com a chave protegida
+      const resp = await fetch('/api/lotofacil', { cache: 'no-store' });
+      if (!resp.ok) throw new Error('Erro na função');
+      const json = await resp.json();
+
+      if (!json.erro && Array.isArray(json.numeros) && json.numeros.length === 15) {
+        const nums = json.numeros.map(Number).sort((a, b) => a - b);
+        const live = {
+          concurso: json.concurso,
+          data: json.data || '—',
+          numeros: nums,
+          ganhadores: json.ganhadores ?? '?'
+        };
         setLiveResult(live);
         await window.storage.set('loto-live-v3', JSON.stringify(live));
         await window.storage.set('loto-ts', String(Date.now()));
-        setNotification({ type: 'success', msg: `✅ Concurso ${latest.concurso} carregado!` });
-        setTimeout(() => setNotification(null), 4000);
+
+        // Adiciona ao histórico se for concurso novo
+        const cur = currentGames || games;
+        if (!cur.find(g => g.concurso === live.concurso)) {
+          const updated = [{ concurso: live.concurso, numeros: nums }, ...cur].slice(0, 500);
+          setGames(updated);
+          setStats(analyze(updated));
+          await window.storage.set('loto-games-v3', JSON.stringify(updated));
+        }
+
+        setNotification({ type: 'success', msg: `✅ Concurso ${live.concurso} atualizado — ${live.data}` });
+        setTimeout(() => setNotification(null), 5000);
         setStatus('');
+      } else {
+        throw new Error(json.erro || 'Dados inválidos');
       }
     } catch (e) {
-      setStatus('⚠ Erro ao carregar.');
+      // Fallback: mostra o dado mais recente do seed
+      const cur = currentGames || games;
+      const latest = cur[0];
+      if (latest && !liveResult) {
+        const live = { concurso: latest.concurso, data: '—', numeros: latest.numeros, ganhadores: '?' };
+        setLiveResult(live);
+      }
+      setStatus('⚠ Não foi possível buscar agora. Mostrando último dado salvo.');
+      setTimeout(() => setStatus(''), 5000);
     }
     setFetching(false);
-  }, [games]);
+  }, [games, liveResult]);
 
   const saveGame = async () => {
     if (myNums.length !== 15) return;
