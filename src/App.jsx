@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 // ─── SEED DATA (últimos 500 concursos) ───────────────────────
-const SEED_RAW = `3663:01,03,04,05,06,10,12,14,17,19,20,22,23,24,25
+const SEED_RAW = `3665:01,02,03,05,06,07,09,10,11,13,16,18,22,23,25
+3664:01,02,04,05,06,07,10,11,12,16,18,19,20,22,23
+3663:01,03,04,05,06,10,12,14,17,19,20,22,23,24,25
 3662:01,03,04,05,06,10,12,14,17,19,20,22,23,24,25
 3661:02,03,04,05,06,07,08,10,12,14,15,19,21,23,24
 3660:01,02,05,06,07,08,10,11,12,14,17,18,22,23,24
@@ -626,17 +628,16 @@ export default function App() {
   // ── Busca resultado via Grok API (servidor seguro) ──────────
   const fetchLatest = useCallback(async (currentGames) => {
     setFetching(true);
-    setStatus('⟳ Buscando resultado com IA...');
+    setStatus('⟳ Buscando resultado...');
     try {
-      // Chama a Vercel Function que usa o Grok com a chave protegida
       const resp = await fetch('/api/lotofacil', { cache: 'no-store' });
-      if (!resp.ok) throw new Error('Erro na função');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const json = await resp.json();
 
       if (!json.erro && Array.isArray(json.numeros) && json.numeros.length === 15) {
         const nums = json.numeros.map(Number).sort((a, b) => a - b);
         const live = {
-          concurso: json.concurso,
+          concurso: parseInt(json.concurso),
           data: json.data || '—',
           numeros: nums,
           ganhadores: json.ganhadores ?? '?'
@@ -657,22 +658,24 @@ export default function App() {
         setNotification({ type: 'success', msg: `✅ Concurso ${live.concurso} atualizado — ${live.data}` });
         setTimeout(() => setNotification(null), 5000);
         setStatus('');
-      } else {
-        throw new Error(json.erro || 'Dados inválidos');
+        setFetching(false);
+        return;
       }
+      throw new Error(json.erro || 'Dados inválidos');
     } catch (e) {
       // Fallback: mostra o dado mais recente do seed
       const cur = currentGames || games;
       const latest = cur[0];
-      if (latest && !liveResult) {
+      if (latest) {
         const live = { concurso: latest.concurso, data: '—', numeros: latest.numeros, ganhadores: '?' };
         setLiveResult(live);
+        await window.storage.set('loto-live-v3', JSON.stringify(live));
       }
-      setStatus('⚠ Não foi possível buscar agora. Mostrando último dado salvo.');
-      setTimeout(() => setStatus(''), 5000);
+      setStatus('⚠ Usando último resultado salvo.');
+      setTimeout(() => setStatus(''), 4000);
     }
     setFetching(false);
-  }, [games, liveResult]);
+  }, [games]);
 
   const saveGame = async () => {
     if (myNums.length !== 15) return;
