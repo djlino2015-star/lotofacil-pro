@@ -747,10 +747,14 @@ export default function App() {
       )}
 
       {/* HEADER */}
-      <div style={{ background: 'linear-gradient(160deg,#08122a 0%,#0f1e45 50%,#070e20 100%)', borderBottom: '1px solid #1a3060', padding: notification ? '48px 16px 12px' : '16px 16px 12px', textAlign: 'center' }}>
-        <div style={{ fontSize: 9, color: '#1e3a70', letterSpacing: 4, marginBottom: 2 }}>◆ ANÁLISE ESTATÍSTICA AVANÇADA ◆</div>
-        <div style={{ fontSize: 22, fontWeight: 900, background: 'linear-gradient(90deg,#2a5fff,#00dcff,#2a5fff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: 3 }}>LOTOFÁCIL PRO</div>
-        <div style={{ fontSize: 9, color: '#1e3060', marginTop: 2 }}>{stats?.total || 0} concursos · #{games[games.length - 1]?.concurso}–#{games[0]?.concurso}</div>
+      <div style={{ background: 'linear-gradient(160deg,#08122a 0%,#0f1e45 50%,#070e20 100%)', borderBottom: '1px solid #1a3060', padding: notification ? '48px 16px 12px' : '16px 16px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <img src="/logo.jpg" alt="Lotofácil PRO" style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover', boxShadow: '0 0 12px #aa44ff66', border: '1px solid #6622aa' }} />
+        <div style={{ textAlign: 'center', flex: 1 }}>
+          <div style={{ fontSize: 9, color: '#1e3a70', letterSpacing: 4, marginBottom: 2 }}>◆ ANÁLISE ESTATÍSTICA AVANÇADA ◆</div>
+          <div style={{ fontSize: 22, fontWeight: 900, background: 'linear-gradient(90deg,#2a5fff,#00dcff,#2a5fff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: 3 }}>LOTOFÁCIL PRO</div>
+          <div style={{ fontSize: 9, color: '#1e3060', marginTop: 2 }}>{stats?.total || 0} concursos · #{games[games.length - 1]?.concurso}–#{games[0]?.concurso}</div>
+        </div>
+        <div style={{ width: 64 }} />
       </div>
 
       {/* STATUS */}
